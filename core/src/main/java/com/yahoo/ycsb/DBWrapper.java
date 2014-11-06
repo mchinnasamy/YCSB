@@ -69,10 +69,10 @@ public class DBWrapper extends DB
 	 */
 	public void cleanup() throws DBException
 	{
-    long st=System.nanoTime();
+    		long st=System.nanoTime();
 		_db.cleanup();
-    long en=System.nanoTime();
-    _measurements.measure("CLEANUP", (int)((en-st)/1000));
+    		long en=System.nanoTime();
+    		_measurements.measure("CLEANUP", (int)((en-st)/1000));
 	}
 
 	/**
@@ -114,6 +114,49 @@ public class DBWrapper extends DB
 		return res;
 	}
 	
+        /**
+         * Read a record from the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB lookups
+         *
+         * @param table The name of the table
+         * @param fieldname The secondary read field of the table
+         * @param key The record key of the record to read.
+         * @param fields The list of fields to read, or null for all of them
+         * @param result A HashMap of field/value pairs for the result
+         * @return Zero on success, a non-zero error code on error or "not found".
+         */
+        public int read(String table, String fieldname, String key, Set<String> fields, HashMap<String, ByteIterator> result)
+        {
+                long st=System.nanoTime();
+                int res=_db.read(table,fieldname,key,fields,result);
+                long en=System.nanoTime();
+                _measurements.measure("SECONDARYREAD",(int)((en-st)/1000));
+                _measurements.reportReturnCode("SECONDARYREAD",res);
+                return res;
+        }
+
+        /**
+         * Perform a range scan for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB lookups
+         *
+         * @param table The name of the table
+         * @param fieldname The secondary read field of the table
+         * @param startkey The record key of the first record to read.
+         * @param recordcount The number of records to read
+         * @param fields The list of fields to read, or null for all of them
+         * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+         * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
+         */
+        public int scan(String table, String fieldname, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String, ByteIterator>> result)
+        {
+                long st=System.nanoTime();
+                int res=_db.scan(table,fieldname,startkey,recordcount,fields,result);
+                long en=System.nanoTime();
+                _measurements.measure("SECONDARAYSCAN",(int)((en-st)/1000));
+                _measurements.reportReturnCode("SECONDARAYSCAN",res);
+                return res;
+        }
+
 	/**
 	 * Update a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified
 	 * record key, overwriting any existing values with the same field name.
