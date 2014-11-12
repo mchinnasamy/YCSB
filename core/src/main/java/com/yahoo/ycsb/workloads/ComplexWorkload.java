@@ -39,6 +39,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Vector;
 import java.util.Date;
+import java.util.Calendar;
 
 /**
  * The core benchmark scenario. Represents a set of clients doing simple CRUD operations. The relative 
@@ -52,16 +53,24 @@ import java.util.Date;
  * <LI><b>readallfields</b>: should reads read all fields (true) or just one (false) (default: true)
  * <LI><b>writeallfields</b>: should updates and read/modify/writes update all fields (true) or just one (false) (default: false)
  * <LI><b>readproportion</b>: what proportion of operations should be reads (default: 0.95)
+ * <LI><b>secondaryreadproportion</b>: what proportion of operations should be secondary reads (default: 0)
+ * <LI><b>complexreadproportion</b>: what proportion of operations should be complex reads (default: 0)
  * <LI><b>updateproportion</b>: what proportion of operations should be updates (default: 0.05)
  * <LI><b>insertproportion</b>: what proportion of operations should be inserts (default: 0)
  * <LI><b>scanproportion</b>: what proportion of operations should be scans (default: 0)
+ * <LI><b>secondaryscanproportion</b>: what proportion of operations should be secondary scans (default: 0)
+ * <LI><b>complexscanproportion</b>: what proportion of operations should be complex scans (default: 0)
  * <LI><b>readmodifywriteproportion</b>: what proportion of operations should be read a record, modify it, write it back (default: 0)
  * <LI><b>requestdistribution</b>: what distribution should be used to select the records to operate on - uniform, zipfian, hotspot, or latest (default: uniform)
  * <LI><b>maxscanlength</b>: for scans, what is the maximum number of records to scan (default: 1000)
  * <LI><b>scanlengthdistribution</b>: for scans, what distribution should be used to choose the number of records to scan, for each scan, between 1 and maxscanlength (default: uniform)
  * <LI><b>insertorder</b>: should records be inserted in order by key ("ordered"), or in hashed order ("hashed") (default: hashed)
- * <LI><b>secondaryreads</b>: should secondary lookups be performed for read/scan operations: true or false (default: true)
+ * <LI><b>complexreads</b>: should complex lookups be performed for read/scan operations: true or false (default: true)
  * <LI><b>secondaryreadfield</b>: Which field to be used for secondary read/scan key lookups: intkey, stringkey, or datekey (default: intkey)
+ * <LI><b>secondarykeydistribution</b>: what distribution should be used to select the secondary key values - uniform, zipfian, hotspot, or latest (default: uniform)
+ * <LI><b>numdistinctintkeys</b>: the number of distinct values to generate for the intkey field (default: 300)
+ * <LI><b>numdistinctstringkeys</b>: the number of distinct values to generate for the string field (default: 500)
+ * <LI><b>numdistinctdatekeys</b>: the number of distinct values to generate for the datekey field (default: 240)
  * </ul> 
  */
 public class ComplexWorkload extends Workload
@@ -163,6 +172,26 @@ public class ComplexWorkload extends Workload
 	public static final String READ_PROPORTION_PROPERTY_DEFAULT="0.95";
 
 	/**
+	 * The name of the property for the proportion of transactions that are secondary reads.
+	 */
+	public static final String SECONDARY_READ_PROPORTION_PROPERTY="secondaryreadproportion";
+	
+	/**
+	 * The default proportion of transactions that are secondary reads.	
+	 */
+	public static final String SECONDARY_READ_PROPORTION_PROPERTY_DEFAULT="0.0";
+
+	/**
+	 * The name of the property for the proportion of transactions that are complex reads.
+	 */
+	public static final String COMPLEX_READ_PROPORTION_PROPERTY="complexreadproportion";
+	
+	/**
+	 * The default proportion of transactions that are complex reads.	
+	 */
+	public static final String COMPLEX_READ_PROPORTION_PROPERTY_DEFAULT="0.0";
+
+	/**
 	 * The name of the property for the proportion of transactions that are updates.
 	 */
 	public static final String UPDATE_PROPORTION_PROPERTY="updateproportion";
@@ -191,6 +220,26 @@ public class ComplexWorkload extends Workload
 	 * The default proportion of transactions that are scans.
 	 */
 	public static final String SCAN_PROPORTION_PROPERTY_DEFAULT="0.0";
+	
+	/**
+	 * The name of the property for the proportion of transactions that are secondary scans.
+	 */
+	public static final String SECONDARY_SCAN_PROPORTION_PROPERTY="secondaryscanproportion";
+	
+	/**
+	 * The default proportion of transactions that are secondary scans.
+	 */
+	public static final String SECONDARY_SCAN_PROPORTION_PROPERTY_DEFAULT="0.0";
+	
+	/**
+	 * The name of the property for the proportion of transactions that are complex scans.
+	 */
+	public static final String COMPLEX_SCAN_PROPORTION_PROPERTY="complexscanproportion";
+	
+	/**
+	 * The default proportion of transactions that are complex scans.
+	 */
+	public static final String COMPLEX_SCAN_PROPORTION_PROPERTY_DEFAULT="0.0";
 	
 	/**
 	 * The name of the property for the proportion of transactions that are read-modify-write.
@@ -243,14 +292,14 @@ public class ComplexWorkload extends Workload
 	public static final String INSERT_ORDER_PROPERTY_DEFAULT="hashed";
 	
 	/**
-	 * The name of the property for deciding whether to perform secondary lookups for read/scan operations. Options are "true" or "false"
+	 * The name of the property for deciding whether to perform complex lookups for read/scan operations. Options are "true" or "false"
 	 */
-	public static final String SECONDARY_READS_PROPERTY="secondaryreads";
+	public static final String COMPLEX_READS_PROPERTY="complexreads";
 	
 	/**
-	 * The default value for the secondaryreads property.
+	 * The default value for the complex reads property.
 	 */
-	public static final String SECONDARY_READS_PROPERTY_DEFAULT="true";
+	public static final String COMPLEX_READS_PROPERTY_DEFAULT="true";
 
 	/**
 	 * The name of the property for deciding which field to be used for secondary lookups. Options are "intkey", "stringkey", or "datekey"
@@ -262,6 +311,43 @@ public class ComplexWorkload extends Workload
 	 */
 	public static final String SECONDARY_READ_FIELD_PROPERTY_DEFAULT="intkey";
 	
+	/**
+	 * The name of the property for the the distribution of secondary key values. Options are "uniform", "zipfian" and "latest"
+	 */
+	public static final String SECONDARY_KEY_DISTRIBUTION_PROPERTY="secondarykeydistribution";
+	
+	/**
+	 * The default distribution of secondary key values
+	 */
+	public static final String SECONDARY_KEY_DISTRIBUTION_PROPERTY_DEFAULT="uniform";
+
+	/**
+	 * The number of distinct values to generate for the intkey field
+	 */
+	public static final String NUM_DISTINCT_INT_KEYS_PROPERTY="numdistinctintkeys";
+	/**
+	 * The default maximum distinct values for intkeys
+	 */
+	public static final String NUM_DISTINCT_INT_KEYS_PROPERTY_DEFAULT="500";
+
+	/**
+	 * The number of distinct values to generate for the stringkey field
+	 */
+	public static final String NUM_DISTINCT_STRING_KEYS_PROPERTY="numdistinctstringkeys";
+	/**
+	 * The default maximum distinct values for stringkeys
+	 */
+	public static final String NUM_DISTINCT_STRING_KEYS_PROPERTY_DEFAULT="500";
+
+	/**
+	 * The number of distinct values to generate for the datekey field
+	 */
+	public static final String NUM_DISTINCT_DATE_KEYS_PROPERTY="numdistinctdatekeys";
+	/**
+	 * The default maximum distinct values for datekeys
+	 */
+	public static final String NUM_DISTINCT_DATE_KEYS_PROPERTY_DEFAULT="500";
+
 	/**
         * Percentage data items that constitute the hot set.
         */
@@ -282,6 +368,18 @@ public class ComplexWorkload extends Workload
          */
         public static final String HOTSPOT_OPN_FRACTION_DEFAULT = "0.8";
 	
+	/**
+	 * Generator object that produces secondary key values.  The value of this depends on the properties that start with "NUM_DISTINCT_"
+	 */
+        IntegerGenerator intkeygenerator;
+        IntegerGenerator stringkeygenerator;
+        IntegerGenerator daysoffsetgenerator;
+	/*
+	 * Generator objects to generate offsets for lower and upper bound date ranges
+	 */
+        IntegerGenerator lbdaysoffsetgenerator;
+        IntegerGenerator ubdaysoffsetgenerator;
+	
 	IntegerGenerator keysequence;
 
 	DiscreteGenerator operationchooser;
@@ -297,16 +395,14 @@ public class ComplexWorkload extends Workload
 	boolean orderedinserts;
 
 	int recordcount;
+	
+	private static int numdistinctdatekeys;
 
         /** 
 	 * variables to generate random keys for secondary lookups/range scans 
  	 */
-        boolean secondaryreads;
+        boolean complexreads;
         String secondaryreadfield;
-        IntegerGenerator intkeygenerator;
-        IntegerGenerator intyeargenerator;
-        IntegerGenerator intmonthgenerator;
-        IntegerGenerator stringkeygenerator;
 
 	
 	protected static IntegerGenerator getFieldLengthGenerator(Properties p) throws WorkloadException{
@@ -332,6 +428,55 @@ public class ComplexWorkload extends Workload
 		return fieldlengthgenerator;
 	}
 	
+	// generate random integers between 1 and numdistinctintkeys (or default 500), following specified secondary key distribution
+	protected static IntegerGenerator getIntKeysGenerator(Properties p) throws WorkloadException{
+		IntegerGenerator numdistinctintkeysgenerator;
+		String secondarykeydistribution = p.getProperty(SECONDARY_KEY_DISTRIBUTION_PROPERTY, SECONDARY_KEY_DISTRIBUTION_PROPERTY_DEFAULT);
+		int numdistinctintkeys=Integer.parseInt(p.getProperty(NUM_DISTINCT_INT_KEYS_PROPERTY, NUM_DISTINCT_INT_KEYS_PROPERTY_DEFAULT));
+		if(secondarykeydistribution.compareTo("uniform") == 0) {
+			numdistinctintkeysgenerator = new UniformIntegerGenerator(1, numdistinctintkeys);
+		} else if(secondarykeydistribution.compareTo("zipfian") == 0) {
+			numdistinctintkeysgenerator = new ZipfianGenerator(1, numdistinctintkeys);
+		} else {
+			throw new WorkloadException("Distribution \""+secondarykeydistribution+"\" not allowed for secondary intkey");
+		}
+		return numdistinctintkeysgenerator;
+	}
+	
+        // generate random strings of names from an array between 1 and numdistinctstringkeys (or default 500), following specified secondary key distribution
+        protected static IntegerGenerator getStringKeysGenerator(Properties p) throws WorkloadException{
+                IntegerGenerator numdistinctstringkeysgenerator;
+                String secondarykeydistribution = p.getProperty(SECONDARY_KEY_DISTRIBUTION_PROPERTY, SECONDARY_KEY_DISTRIBUTION_PROPERTY_DEFAULT);
+                int numdistinctstringkeys=Integer.parseInt(p.getProperty(NUM_DISTINCT_STRING_KEYS_PROPERTY, NUM_DISTINCT_STRING_KEYS_PROPERTY_DEFAULT));
+                if(secondarykeydistribution.compareTo("uniform") == 0) {
+                        numdistinctstringkeysgenerator = new UniformIntegerGenerator(1, numdistinctstringkeys);
+                } else if(secondarykeydistribution.compareTo("zipfian") == 0) {
+                        numdistinctstringkeysgenerator = new ZipfianGenerator(1, numdistinctstringkeys);
+                } else {
+                        throw new WorkloadException("Distribution \""+secondarykeydistribution+"\" not allowed for secondary stringkey");
+                }
+                return numdistinctstringkeysgenerator;
+        }
+
+        // generate random dates from a basedate and numdistinctdatekeys (or default 500), following specified secondary key distribution
+	protected static Date getRandomDate(int daysFromBase)
+        {
+		// base date randomly chosen for test data purposes
+                Date bDate = new Date(112,01,01);
+                Calendar cal = Calendar.getInstance();
+                cal.setTime(bDate);
+
+                if ( daysFromBase > numdistinctdatekeys/2 ){
+                        daysFromBase = daysFromBase - numdistinctdatekeys;
+                        cal.add(Calendar.DATE, daysFromBase);
+                } else {
+                        cal.add(Calendar.DATE, daysFromBase);
+                }
+
+                return cal.getTime();
+
+        }
+
 	/**
 	 * Initialize the scenario. 
 	 * Called once, in the main client thread, before any operations are started.
@@ -342,11 +487,15 @@ public class ComplexWorkload extends Workload
 		
 		fieldcount=Integer.parseInt(p.getProperty(FIELD_COUNT_PROPERTY,FIELD_COUNT_PROPERTY_DEFAULT));
 		fieldlengthgenerator = ComplexWorkload.getFieldLengthGenerator(p);
-		
+
 		double readproportion=Double.parseDouble(p.getProperty(READ_PROPORTION_PROPERTY,READ_PROPORTION_PROPERTY_DEFAULT));
+		double secondaryreadproportion=Double.parseDouble(p.getProperty(SECONDARY_READ_PROPORTION_PROPERTY,SECONDARY_READ_PROPORTION_PROPERTY_DEFAULT));
+		double complexreadproportion=Double.parseDouble(p.getProperty(COMPLEX_READ_PROPORTION_PROPERTY,COMPLEX_READ_PROPORTION_PROPERTY_DEFAULT));
 		double updateproportion=Double.parseDouble(p.getProperty(UPDATE_PROPORTION_PROPERTY,UPDATE_PROPORTION_PROPERTY_DEFAULT));
 		double insertproportion=Double.parseDouble(p.getProperty(INSERT_PROPORTION_PROPERTY,INSERT_PROPORTION_PROPERTY_DEFAULT));
 		double scanproportion=Double.parseDouble(p.getProperty(SCAN_PROPORTION_PROPERTY,SCAN_PROPORTION_PROPERTY_DEFAULT));
+		double secondaryscanproportion=Double.parseDouble(p.getProperty(SECONDARY_SCAN_PROPORTION_PROPERTY,SECONDARY_SCAN_PROPORTION_PROPERTY_DEFAULT));
+		double complexscanproportion=Double.parseDouble(p.getProperty(COMPLEX_SCAN_PROPORTION_PROPERTY,COMPLEX_SCAN_PROPORTION_PROPERTY_DEFAULT));
 		double readmodifywriteproportion=Double.parseDouble(p.getProperty(READMODIFYWRITE_PROPORTION_PROPERTY,READMODIFYWRITE_PROPORTION_PROPERTY_DEFAULT));
 		recordcount=Integer.parseInt(p.getProperty(Client.RECORD_COUNT_PROPERTY));
 		String requestdistrib=p.getProperty(REQUEST_DISTRIBUTION_PROPERTY,REQUEST_DISTRIBUTION_PROPERTY_DEFAULT);
@@ -354,8 +503,21 @@ public class ComplexWorkload extends Workload
 		String scanlengthdistrib=p.getProperty(SCAN_LENGTH_DISTRIBUTION_PROPERTY,SCAN_LENGTH_DISTRIBUTION_PROPERTY_DEFAULT);
 		
 		int insertstart=Integer.parseInt(p.getProperty(INSERT_START_PROPERTY,INSERT_START_PROPERTY_DEFAULT));
-		secondaryreads=Boolean.parseBoolean(p.getProperty(SECONDARY_READS_PROPERTY,SECONDARY_READS_PROPERTY_DEFAULT));
+		complexreads=Boolean.parseBoolean(p.getProperty(COMPLEX_READS_PROPERTY,COMPLEX_READS_PROPERTY_DEFAULT));
 		secondaryreadfield=p.getProperty(SECONDARY_READ_FIELD_PROPERTY,SECONDARY_READ_FIELD_PROPERTY_DEFAULT);
+                numdistinctdatekeys=Integer.parseInt(p.getProperty(NUM_DISTINCT_DATE_KEYS_PROPERTY, NUM_DISTINCT_DATE_KEYS_PROPERTY_DEFAULT));
+
+		if (complexreads)
+		{
+			intkeygenerator = ComplexWorkload.getIntKeysGenerator(p);
+			stringkeygenerator = ComplexWorkload.getStringKeysGenerator(p);
+		
+        		// generate days interval to apply to base date
+        		daysoffsetgenerator = new UniformIntegerGenerator( 1, numdistinctdatekeys );
+			// used for date range queries
+        		lbdaysoffsetgenerator = new UniformIntegerGenerator( 1, numdistinctdatekeys/2 );
+        		ubdaysoffsetgenerator = new UniformIntegerGenerator( numdistinctdatekeys/2 , numdistinctdatekeys );
+		}
 		
 		readallfields=Boolean.parseBoolean(p.getProperty(READ_ALL_FIELDS_PROPERTY,READ_ALL_FIELDS_PROPERTY_DEFAULT));
 		writeallfields=Boolean.parseBoolean(p.getProperty(WRITE_ALL_FIELDS_PROPERTY,WRITE_ALL_FIELDS_PROPERTY_DEFAULT));
@@ -384,6 +546,16 @@ public class ComplexWorkload extends Workload
 			operationchooser.addValue(readproportion,"READ");
 		}
 
+		if (secondaryreadproportion>0)
+		{
+			operationchooser.addValue(secondaryreadproportion,"SECONDARYREAD");
+		}
+
+		if (complexreadproportion>0)
+		{
+			operationchooser.addValue(complexreadproportion,"COMPLEXREAD");
+		}
+
 		if (updateproportion>0)
 		{
 			operationchooser.addValue(updateproportion,"UPDATE");
@@ -397,6 +569,16 @@ public class ComplexWorkload extends Workload
 		if (scanproportion>0)
 		{
 			operationchooser.addValue(scanproportion,"SCAN");
+		}
+		
+		if (secondaryscanproportion>0)
+		{
+			operationchooser.addValue(secondaryscanproportion,"SECONDARYSCAN");
+		}
+		
+		if (complexscanproportion>0)
+		{
+			operationchooser.addValue(complexscanproportion,"COMPLEXSCAN");
 		}
 		
 		if (readmodifywriteproportion>0)
@@ -455,16 +637,6 @@ public class ComplexWorkload extends Workload
 		{
 			throw new WorkloadException("Distribution \""+scanlengthdistrib+"\" not allowed for scan length");
 		}
-		if (secondaryreads)
-		{
-			// generate uniform random integers between 1 and 300
-		        intkeygenerator = new UniformIntegerGenerator(1,300);
-        		// generate uniform random dates from 1900 - below range will generate between 1983 and 2003
-        		intyeargenerator = new UniformIntegerGenerator(83,103);
-        		intmonthgenerator = new UniformIntegerGenerator(0,11);
-			// generate up to 500 uniform random names 
-        		stringkeygenerator = new UniformIntegerGenerator(1,500);
-		}
 
 	}
 
@@ -476,30 +648,39 @@ public class ComplexWorkload extends Workload
 		return "user"+keynum;
 	}
 
-        String uniformSecondaryKeyValue(String fieldname) {
+        String getSecondaryKeyValue(String fieldname) {
 
-		String secondaryKey = new String();
+                String secondaryKey = new String();
                 RandomDataGenerator rdata = new RandomDataGenerator();
-		int rInt, rYear, rMonth;
-		Date rDate;
+                int rInt, daysFromBase;
 
                 if ( fieldname.equals("intkey") )
                 {
-			rInt = intkeygenerator.nextInt();
+                        rInt = intkeygenerator.nextInt();
                         secondaryKey = String.valueOf( rInt );
                 }
                 else if ( fieldname.equals("stringkey") )
                 {
-			rInt = stringkeygenerator.nextInt();
+                        rInt = stringkeygenerator.nextInt();
                         secondaryKey = rdata.getRandomName( rInt );
                 }
                 else if ( fieldname.equals("datekey") )
                 {
-			rYear = intyeargenerator.nextInt();
-			rMonth = intmonthgenerator.nextInt();
-			// generate 1st day of month to limit the distinct date values generated
-			rDate = new Date(rYear, rMonth, 1); 	
-                        secondaryKey = rDate.toString();
+                        daysFromBase = daysoffsetgenerator.nextInt();
+                        // generate date from chosen base date using random offset
+                        secondaryKey = getRandomDate(daysFromBase).toString();
+                }
+                else if ( fieldname.equals("lbdatekey") )
+                {
+			daysFromBase = lbdaysoffsetgenerator.nextInt();
+			// generate lower bound date using random offset
+                        secondaryKey = getRandomDate(daysFromBase).toString();
+                }
+                else if ( fieldname.equals("ubdatekey") )
+                {
+			daysFromBase = ubdaysoffsetgenerator.nextInt();
+			// generate upper bound date using random offset
+                        secondaryKey = getRandomDate(daysFromBase).toString();
                 }
 
                 return secondaryKey;
@@ -508,40 +689,43 @@ public class ComplexWorkload extends Workload
 	HashMap<String, ByteIterator> buildValues() {
  		HashMap<String,ByteIterator> values=new HashMap<String,ByteIterator>();
 
-		String fieldkey = new String();
-		String sdata = new String();
-		ByteIterator data;
+                String fieldkey = new String();
+                String sdata = new String();
+                ByteIterator data;
 
- 		for (int i=0; i<fieldcount; i++)
- 		{
-                        if ( i == 0 )
-                        {
-                                fieldkey = "intkey";
-				sdata = uniformSecondaryKeyValue (fieldkey );
-				data = new StringByteIterator( sdata );
-                        }
-                        else if ( i == 1 )
-                        {
-                                fieldkey = "stringkey";
-				sdata = uniformSecondaryKeyValue (fieldkey );
-				data = new StringByteIterator( sdata );
-                        }
-                        else if ( i == 2 )
-                        {
-                                fieldkey = "datekey";
-				sdata = uniformSecondaryKeyValue (fieldkey );
-				data = new StringByteIterator( sdata );
-                        }
-                        else
-                        {
-                                fieldkey = "field" + i;
-				data= new RandomByteIterator(fieldlengthgenerator.nextInt());
-                        }
+		// Three additional fields added to base YCSB and used by complex lookups
+		if (complexreads)
+		{
+                        // integer data field - bounded by range specified in the generator
+			fieldkey = "intkey";
+                        sdata = getSecondaryKeyValue (fieldkey );
+                        data = new StringByteIterator( sdata );
+                        values.put(fieldkey,data);
 
- 			values.put(fieldkey,data);
- 		}
+                        // string data field - bounded by range specified in the generator
+                        fieldkey = "stringkey";
+                        sdata = getSecondaryKeyValue (fieldkey );
+                        data = new StringByteIterator( sdata );
+                        values.put(fieldkey,data);
+
+                        // date data field - bounded by range specified in the generator
+                        fieldkey = "datekey";
+                        sdata = getSecondaryKeyValue (fieldkey );
+                        data = new StringByteIterator( sdata );
+                        values.put(fieldkey,data);
+		}
+
+		// original 10 fields created by YCSB
+                for (int i=0; i<fieldcount; i++)
+                {
+                        fieldkey = "field" + i;
+                        data= new RandomByteIterator(fieldlengthgenerator.nextInt());
+                        values.put(fieldkey,data);
+                }
+
 		return values;
 	}
+
 	HashMap<String, ByteIterator> buildUpdate() {
 		//update a random field
 		HashMap<String, ByteIterator> values=new HashMap<String,ByteIterator>();
@@ -582,6 +766,14 @@ public class ComplexWorkload extends Workload
 		{
 			doTransactionRead(db);
 		}
+		else if (op.compareTo("SECONDARYREAD")==0)
+		{
+			doTransactionSecondaryRead(db);
+		}
+		else if (op.compareTo("COMPLEXREAD")==0)
+		{
+			doTransactionComplexRead(db);
+		}
 		else if (op.compareTo("UPDATE")==0)
 		{
 			doTransactionUpdate(db);
@@ -593,6 +785,14 @@ public class ComplexWorkload extends Workload
 		else if (op.compareTo("SCAN")==0)
 		{
 			doTransactionScan(db);
+		}
+		else if (op.compareTo("SECONDARYSCAN")==0)
+		{
+			doTransactionSecondaryScan(db);
+		}
+		else if (op.compareTo("COMPLEXSCAN")==0)
+		{
+			doTransactionComplexScan(db);
 		}
 		else
 		{
@@ -638,15 +838,52 @@ public class ComplexWorkload extends Workload
 			fields.add(fieldname);
 		}
 
-		if ( !secondaryreads ) {
-			db.read(table,keyname,fields,new HashMap<String,ByteIterator>());
+		db.read(table,keyname,fields,new HashMap<String,ByteIterator>());
+
+	}
+	
+	public void doTransactionSecondaryRead(DB db)
+	{
+		HashSet<String> fields=null;
+
+		if (!readallfields)
+		{
+			//read a random field  
+			String fieldname="field"+fieldchooser.nextString();
+
+			fields=new HashSet<String>();
+			fields.add(fieldname);
 		}
 
 		// extended lookup by specified field: one of intkey, stringkey, datekey
 
-		String keyvalue = uniformSecondaryKeyValue ( secondaryreadfield ); 
+		String keyvalue = getSecondaryKeyValue ( secondaryreadfield ); 
 
 		db.read(table,secondaryreadfield,keyvalue,fields,new HashMap<String,ByteIterator>());
+	}
+	
+	public void doTransactionComplexRead(DB db)
+	{
+		HashSet<String> fields=null;
+
+		if (!readallfields)
+		{
+			//read a random field  
+			String fieldname="field"+fieldchooser.nextString();
+
+			fields=new HashSet<String>();
+			fields.add(fieldname);
+		}
+
+		// extended lookup on intkey and date range
+
+		String fieldName1 = "intkey";
+		String fieldName2 = "datekey";
+		String keyvalue = getSecondaryKeyValue ( fieldName1 ); 
+		String lbdatekey = getSecondaryKeyValue ( "lbdatekey" ); 
+		String ubdatekey = getSecondaryKeyValue ( "ubdatekey" ); 
+
+		db.read(table,fieldName1,keyvalue,fieldName2, lbdatekey, ubdatekey, fields,new HashMap<String,ByteIterator>());
 	}
 	
 	public void doTransactionReadModifyWrite(DB db)
@@ -714,15 +951,57 @@ public class ComplexWorkload extends Workload
 			fields.add(fieldname);
 		}
 
-		if ( !secondaryreads ) {
-			db.scan(table,startkeyname,len,fields,new Vector<HashMap<String,ByteIterator>>());
+		db.scan(table,startkeyname,len,fields,new Vector<HashMap<String,ByteIterator>>());
+	}
+
+	public void doTransactionSecondaryScan(DB db)
+	{
+		//choose a random scan length
+		int len=scanlength.nextInt();
+
+		HashSet<String> fields=null;
+
+		if (!readallfields)
+		{
+			//read a random field  
+			String fieldname="field"+fieldchooser.nextString();
+
+			fields=new HashSet<String>();
+			fields.add(fieldname);
 		}
 
 		// extended lookup by specified field: one of intkey, stringkey, datekey
 
-		String startkeyvalue = uniformSecondaryKeyValue ( secondaryreadfield ); 
+		String startkeyvalue = getSecondaryKeyValue ( secondaryreadfield ); 
 
 		db.scan(table,secondaryreadfield,startkeyvalue,len,fields,new Vector<HashMap<String,ByteIterator>>());
+	}
+
+	public void doTransactionComplexScan(DB db)
+	{
+		//choose a random scan length
+		int len=scanlength.nextInt();
+
+		HashSet<String> fields=null;
+
+		if (!readallfields)
+		{
+			//read a random field  
+			String fieldname="field"+fieldchooser.nextString();
+
+			fields=new HashSet<String>();
+			fields.add(fieldname);
+		}
+
+		// extended lookup by specified field: one of intkey, stringkey, datekey
+
+		String fieldName1 = "intkey";
+		String fieldName2 = "datekey";
+		String keyvalue = getSecondaryKeyValue ( fieldName1 ); 
+		String lbdatekey = getSecondaryKeyValue ( "lbdatekey" ); 
+		String ubdatekey = getSecondaryKeyValue ( "ubdatekey" ); 
+
+		db.scan(table,fieldName1,keyvalue,fieldName2, lbdatekey, ubdatekey, len,fields,new Vector<HashMap<String,ByteIterator>>());
 	}
 
 	public void doTransactionUpdate(DB db)

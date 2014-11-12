@@ -9,6 +9,7 @@
 
 package com.yahoo.ycsb.db;
 
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -244,7 +245,7 @@ public class MongoDbClient extends DB {
             DBCollection collection = db.getCollection(table);
             DBObject r = new BasicDBObject().append("_id", key);
             for (String k : values.keySet()) {
-                r.put(k, values.get(k).toArray());
+               	r.put(k, values.get(k).toArray());
             }
             WriteResult res = collection.insert(r, writeConcern);
             return 0;
@@ -313,7 +314,7 @@ public class MongoDbClient extends DB {
 
     /**
      * Read a record from the database. Each field/value pair from the result will be stored in a HashMap.
-     * Extended YCSB lookups
+     * Extended YCSB secondary lookups
      *
      * @param table The name of the table
      * @param fieldname The secondary read field of the table
@@ -333,6 +334,7 @@ public class MongoDbClient extends DB {
             db.requestStart();
 
             DBCollection collection = db.getCollection(table);
+
             HashMap<String, ByteIterator> fieldKey = new HashMap<String, ByteIterator>();
             fieldKey.put(fieldname, new StringByteIterator(key) );
 
@@ -341,6 +343,75 @@ public class MongoDbClient extends DB {
             for (String k : fieldKey.keySet()) {
                 q.put(k, fieldKey.get(k).toArray());
             }
+
+            DBObject fieldsToReturn = new BasicDBObject();
+
+            DBObject queryResult = null;
+            if (fields != null) {
+                Iterator<String> iter = fields.iterator();
+                while (iter.hasNext()) {
+                    fieldsToReturn.put(iter.next(), INCLUDE);
+                }
+                queryResult = collection.findOne(q, fieldsToReturn, readPreference);
+            }
+            else {
+                queryResult = collection.findOne(q, null, readPreference);
+            }
+
+            if (queryResult != null) {
+                result.putAll(queryResult.toMap());
+            }
+            return queryResult != null ? 0 : 1;
+        }
+        catch (Exception e) {
+            System.err.println(e.toString());
+            return 1;
+        }
+        finally {
+            if (db != null) {
+                db.requestDone();
+            }
+        }
+    }
+
+    /**
+     * Read a record from the database. Each field/value pair from the result will be stored in a HashMap.
+     * Extended YCSB complex lookups
+     *
+     * @param table The name of the table
+     * @param fieldname The secondary read field of the table
+     * @param key The record key of the record to read.
+     * @param fieldname2 The compound read field of the table
+     * @param lbdate The lower bound date key of the record to read.
+     * @param ubdate The upper bound date key of the record to read
+     * @param fields The list of fields to read, or null for all of them
+     * @param result A HashMap of field/value pairs for the result
+     * @return Zero on success, a non-zero error code on error or "not found".
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public int read(String table, String fieldname, String key, String fieldname2, String lbdate, String ubdate, 
+		    Set<String> fields, HashMap<String, ByteIterator> result){
+        com.mongodb.DB db = null;
+        try {
+            db = mongos[random.nextInt(mongos.length)].getDB(database);
+
+            db.requestStart();
+
+            DBCollection collection = db.getCollection(table);
+
+            HashMap<String, ByteIterator> dateKey = new HashMap<String, ByteIterator>();
+            dateKey.put("$gte", new StringByteIterator(lbdate) );
+            dateKey.put("$lte", new StringByteIterator(ubdate) );
+
+            DBObject scanRange2 = new BasicDBObject();
+
+            for (String k : dateKey.keySet()) {
+                scanRange2.put(k, dateKey.get(k).toArray());
+            }
+
+            DBObject q = new BasicDBObject().append(fieldname, new StringByteIterator(key).toArray() )
+                                   .append(fieldname2, scanRange2);
 
             DBObject fieldsToReturn = new BasicDBObject();
 
@@ -469,7 +540,7 @@ public class MongoDbClient extends DB {
 
     /**
      * Perform a range scan for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
-     * Extended YCSB lookups
+     * Extended YCSB secondary scans
      *
      * @param table The name of the table
      * @param fieldname The secondary read field of the table
@@ -529,6 +600,73 @@ public class MongoDbClient extends DB {
     }
 
     /**
+     * Perform a range scan for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+     * Extended YCSB complex scans
+     *
+     * @param table The name of the table
+     * @param fieldname The secondary read field of the table
+     * @param key The record key of the record to read.
+     * @param fieldname2 The compound read field of the table
+     * @param lbdate The lower bound date key of the record to read.
+     * @param ubdate The upper bound date key of the record to read
+     * @param recordcount The number of records to read
+     * @param fields The list of fields to read, or null for all of them
+     * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+     * @return Zero on success, a non-zero error code on error or "not found".
+     */
+    @Override
+    public int scan(String table, String fieldname, String startkey, String fieldname2, String lbdate, String ubdate, 
+                    int recordcount, Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+        com.mongodb.DB db = null;
+        DBCursor cursor = null;
+        try {
+            db = mongos[random.nextInt(mongos.length)].getDB(database);
+            db.requestStart();
+            DBCollection collection = db.getCollection(table);
+
+            HashMap<String, ByteIterator> dateKey = new HashMap<String, ByteIterator>();
+            dateKey.put("$gte", new StringByteIterator(lbdate) );
+            dateKey.put("$lte", new StringByteIterator(ubdate) );
+
+            DBObject scanRange2 = new BasicDBObject();
+
+            for (String k : dateKey.keySet()) {
+                scanRange2.put(k, dateKey.get(k).toArray());
+            }
+
+            DBObject q = new BasicDBObject().append(fieldname, new StringByteIterator(startkey).toArray() )
+                                   .append(fieldname2, scanRange2);
+
+            cursor = collection.find(q).limit(recordcount);
+            while (cursor.hasNext()) {
+                // toMap() returns a Map, but result.add() expects a
+                // Map<String,String>. Hence, the suppress warnings.
+                HashMap<String, ByteIterator> resultMap = new HashMap<String, ByteIterator>();
+
+                DBObject obj = cursor.next();
+                fillMap(resultMap, obj);
+
+                result.add(resultMap);
+            }
+
+            return 0;
+        }
+        catch (Exception e) {
+            System.err.println(e.toString());
+            return 1;
+        }
+        finally {
+            if (db != null) {
+                if( cursor != null ) {
+                    cursor.close();
+                }
+                db.requestDone();
+            }
+        }
+
+    }
+
+    /**
      * TODO - Finish
      *
      * @param resultMap
@@ -541,7 +679,7 @@ public class MongoDbClient extends DB {
             if (entry.getValue() instanceof byte[]) {
                 resultMap.put(entry.getKey(), new ByteArrayByteIterator(
                         (byte[]) entry.getValue()));
-            }
+            } 
         }
     }
 }
