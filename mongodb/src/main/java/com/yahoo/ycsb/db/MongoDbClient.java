@@ -9,6 +9,10 @@
 
 package com.yahoo.ycsb.db;
 
+import com.yahoo.ycsb.ByteIterator;
+import com.yahoo.ycsb.DB;
+import com.yahoo.ycsb.DBException;
+
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -18,6 +22,8 @@ import java.util.Random;
 import java.util.Set;
 import java.util.Vector;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.List;
+import java.util.Arrays;
 
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBAddress;
@@ -29,11 +35,8 @@ import com.mongodb.MongoOptions;
 import com.mongodb.ReadPreference;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
-import com.yahoo.ycsb.ByteArrayByteIterator;
-import com.yahoo.ycsb.ByteIterator;
-import com.yahoo.ycsb.StringByteIterator;
-import com.yahoo.ycsb.DB;
-import com.yahoo.ycsb.DBException;
+import com.mongodb.AggregationOptions;
+import com.mongodb.Cursor;
 
 /**
  * MongoDB client for YCSB framework.
@@ -262,6 +265,45 @@ public class MongoDbClient extends DB {
     }
 
     /**
+     * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified
+     * record key.
+     * Extended YCSB secondary lookups
+     *
+     * @param table The name of the table
+     * @param key The record key of the record to insert.
+     * @param values A HashMap of field/value pairs to insert in the record
+     * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
+     */
+    @Override
+    public int complexinsert(String table, String key,
+            HashMap<String, Object> values) {
+        com.mongodb.DB db = null;
+        try {
+            db = mongos[random.nextInt(mongos.length)].getDB(database);
+
+            db.requestStart();
+
+            DBCollection collection = db.getCollection(table);
+            DBObject r = new BasicDBObject().append("_id", key);
+            for (String k : values.keySet()) {
+                r.put(k, values.get(k));
+            }
+            WriteResult res = collection.insert(r, writeConcern);
+            return 0;
+        }
+        catch (Exception e) {
+            e.printStackTrace();
+            return 1;
+        }
+        finally {
+            if (db != null) {
+                db.requestDone();
+            }
+        }
+    }
+
+
+    /**
      * Read a record from the database. Each field/value pair from the result will be stored in a HashMap.
      *
      * @param table The name of the table
@@ -273,7 +315,7 @@ public class MongoDbClient extends DB {
     @Override
     @SuppressWarnings("unchecked")
     public int read(String table, String key, Set<String> fields,
-            HashMap<String, ByteIterator> result) {
+            HashMap<String, Object> result) {
         com.mongodb.DB db = null;
         try {
             db = mongos[random.nextInt(mongos.length)].getDB(database);
@@ -325,8 +367,8 @@ public class MongoDbClient extends DB {
      */
     @Override
     @SuppressWarnings("unchecked")
-    public int read(String table, String fieldname, String key, Set<String> fields,
-            HashMap<String, ByteIterator> result) {
+    public int read(String table, String fieldname, Object key, Set<String> fields,
+            HashMap<String, Object> result) {
         com.mongodb.DB db = null;
         try {
             db = mongos[random.nextInt(mongos.length)].getDB(database);
@@ -335,13 +377,13 @@ public class MongoDbClient extends DB {
 
             DBCollection collection = db.getCollection(table);
 
-            HashMap<String, ByteIterator> fieldKey = new HashMap<String, ByteIterator>();
-            fieldKey.put(fieldname, new StringByteIterator(key) );
+            HashMap<String, Object> fieldKey = new HashMap<String, Object>();
+            fieldKey.put(fieldname, key );
 
             DBObject q = new BasicDBObject();
 
             for (String k : fieldKey.keySet()) {
-                q.put(k, fieldKey.get(k).toArray());
+                q.put(k, fieldKey.get(k));
             }
 
             DBObject fieldsToReturn = new BasicDBObject();
@@ -390,8 +432,8 @@ public class MongoDbClient extends DB {
      */
     @Override
     @SuppressWarnings("unchecked")
-    public int read(String table, String fieldname, String key, String fieldname2, String lbdate, String ubdate, 
-		    Set<String> fields, HashMap<String, ByteIterator> result){
+    public int read(String table, String fieldname, Object key, String fieldname2, Object lbdate, Object ubdate, 
+		    Set<String> fields, HashMap<String, Object> result){
         com.mongodb.DB db = null;
         try {
             db = mongos[random.nextInt(mongos.length)].getDB(database);
@@ -400,17 +442,17 @@ public class MongoDbClient extends DB {
 
             DBCollection collection = db.getCollection(table);
 
-            HashMap<String, ByteIterator> dateKey = new HashMap<String, ByteIterator>();
-            dateKey.put("$gte", new StringByteIterator(lbdate) );
-            dateKey.put("$lte", new StringByteIterator(ubdate) );
+            HashMap<String, Object> dateKey = new HashMap<String, Object>();
+            dateKey.put("$gte", lbdate );
+            dateKey.put("$lte", ubdate );
 
             DBObject scanRange2 = new BasicDBObject();
 
             for (String k : dateKey.keySet()) {
-                scanRange2.put(k, dateKey.get(k).toArray());
+                scanRange2.put(k, dateKey.get(k));
             }
 
-            DBObject q = new BasicDBObject().append(fieldname, new StringByteIterator(key).toArray() )
+            DBObject q = new BasicDBObject().append(fieldname, key )
                                    .append(fieldname2, scanRange2);
 
             DBObject fieldsToReturn = new BasicDBObject();
@@ -499,7 +541,7 @@ public class MongoDbClient extends DB {
      */
     @Override
     public int scan(String table, String startkey, int recordcount,
-            Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+            Set<String> fields, Vector<HashMap<String, Object>> result) {
         com.mongodb.DB db = null;
         DBCursor cursor = null;
         try {
@@ -513,7 +555,7 @@ public class MongoDbClient extends DB {
             while (cursor.hasNext()) {
                 // toMap() returns a Map, but result.add() expects a
                 // Map<String,String>. Hence, the suppress warnings.
-                HashMap<String, ByteIterator> resultMap = new HashMap<String, ByteIterator>();
+                HashMap<String, Object> resultMap = new HashMap<String, Object>();
 
                 DBObject obj = cursor.next();
                 fillMap(resultMap, obj);
@@ -551,8 +593,8 @@ public class MongoDbClient extends DB {
      * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
      */
     @Override
-    public int scan(String table, String fieldname, String startkey, int recordcount,
-            Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+    public int scan(String table, String fieldname, Object startkey, int recordcount,
+            Set<String> fields, Vector<HashMap<String, Object>> result) {
         com.mongodb.DB db = null;
         DBCursor cursor = null;
         try {
@@ -560,13 +602,13 @@ public class MongoDbClient extends DB {
             db.requestStart();
             DBCollection collection = db.getCollection(table);
 
-            HashMap<String, ByteIterator> fieldKey = new HashMap<String, ByteIterator>();
-            fieldKey.put("$gte", new StringByteIterator(startkey));
+            HashMap<String, Object> fieldKey = new HashMap<String, Object>();
+            fieldKey.put("$gte", startkey);
 
             DBObject scanRange = new BasicDBObject();
 
             for (String k : fieldKey.keySet()) {
-                scanRange.put(k, fieldKey.get(k).toArray());
+                scanRange.put(k, fieldKey.get(k));
             }
 
             DBObject q = new BasicDBObject().append(fieldname, scanRange);
@@ -574,7 +616,7 @@ public class MongoDbClient extends DB {
             while (cursor.hasNext()) {
                 // toMap() returns a Map, but result.add() expects a
                 // Map<String,String>. Hence, the suppress warnings.
-                HashMap<String, ByteIterator> resultMap = new HashMap<String, ByteIterator>();
+                HashMap<String, Object> resultMap = new HashMap<String, Object>();
 
                 DBObject obj = cursor.next();
                 fillMap(resultMap, obj);
@@ -615,8 +657,8 @@ public class MongoDbClient extends DB {
      * @return Zero on success, a non-zero error code on error or "not found".
      */
     @Override
-    public int scan(String table, String fieldname, String startkey, String fieldname2, String lbdate, String ubdate, 
-                    int recordcount, Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
+    public int scan(String table, String fieldname, Object startkey, String fieldname2, Object lbdate, Object ubdate, 
+                    int recordcount, Set<String> fields, Vector<HashMap<String, Object>> result) {
         com.mongodb.DB db = null;
         DBCursor cursor = null;
         try {
@@ -624,24 +666,120 @@ public class MongoDbClient extends DB {
             db.requestStart();
             DBCollection collection = db.getCollection(table);
 
-            HashMap<String, ByteIterator> dateKey = new HashMap<String, ByteIterator>();
-            dateKey.put("$gte", new StringByteIterator(lbdate) );
-            dateKey.put("$lte", new StringByteIterator(ubdate) );
+            HashMap<String, Object> dateKey = new HashMap<String, Object>();
+            dateKey.put("$gte", lbdate );
+            dateKey.put("$lte", ubdate );
 
             DBObject scanRange2 = new BasicDBObject();
 
             for (String k : dateKey.keySet()) {
-                scanRange2.put(k, dateKey.get(k).toArray());
+                scanRange2.put(k, dateKey.get(k));
             }
 
-            DBObject q = new BasicDBObject().append(fieldname, new StringByteIterator(startkey).toArray() )
+            DBObject q = new BasicDBObject().append(fieldname, startkey )
                                    .append(fieldname2, scanRange2);
 
             cursor = collection.find(q).limit(recordcount);
             while (cursor.hasNext()) {
                 // toMap() returns a Map, but result.add() expects a
                 // Map<String,String>. Hence, the suppress warnings.
-                HashMap<String, ByteIterator> resultMap = new HashMap<String, ByteIterator>();
+                HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+                DBObject obj = cursor.next();
+                fillMap(resultMap, obj);
+
+                result.add(resultMap);
+            }
+
+            return 0;
+        }
+        catch (Exception e) {
+            System.err.println(e.toString());
+            return 1;
+        }
+        finally {
+            if (db != null) {
+                if( cursor != null ) {
+                    cursor.close();
+                }
+                db.requestDone();
+            }
+        }
+
+    }
+
+     /**
+      * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+      * Extended YCSB aggregates
+      *
+      * @param table The name of the table
+      * @param fieldnameMatch The field of the table used for matching records
+      * @param startkeyMatch The start record key to be matched for aggregate
+      * @param endkeyMatch The end record key to be matched for aggregate
+      * @param aggregaterecordcount The number of records to be filtered for aggregate
+      * @param fieldnameGroup The field of the table used for grouping records
+      * @param groupfunction The function name used for grouping records: valid values are "sum", "avg", "count"
+      * @param topNresults The number of results from aggregate output to return
+      * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+      * @return Zero on success, a non-zero error code on error or "not found".
+      */
+     public int aggregate(String table,String fieldNameMatch, Object startkeyMatch, Object endkeyMatch, int aggregaterecordcount,
+                                      String fieldNameGroup, String groupfunction, int topNresults, Vector<HashMap<String,Object>> result)
+     {
+        com.mongodb.DB db = null;
+        Cursor cursor = null;
+        try {
+            db = mongos[random.nextInt(mongos.length)].getDB(database);
+            db.requestStart();
+            DBCollection collection = db.getCollection(table);
+
+            // create our pipeline operations, first with the $match
+            DBObject match = new BasicDBObject("$match", new BasicDBObject(fieldNameMatch, new BasicDBObject("$gte",startkeyMatch).append("$lte",endkeyMatch)));
+
+            // Now the $group operation
+	    String fieldNameGrouped="intkey";
+            DBObject groupFields = new BasicDBObject( "_id", "$"+fieldNameGroup );
+
+            switch (groupfunction) {
+            	case "count":
+            		groupFields.put( groupfunction+fieldNameGrouped , new BasicDBObject( "$sum", 1 ));
+               	 	break;
+            	case "sum":
+            	case "avg":
+            	case "first":
+            	case "last":
+            	case "min":
+            	case "max":
+            		groupFields.put( groupfunction+fieldNameGrouped , new BasicDBObject( "$"+groupfunction, "$"+fieldNameGrouped ));
+               	 	break;
+            	default:
+               	 	throw new IllegalArgumentException("Invalid accumulator: " + groupfunction);
+            }
+
+            DBObject group = new BasicDBObject("$group", groupFields);
+
+            // Finally the $sort and $limit operations
+            DBObject sort = new BasicDBObject("$sort", new BasicDBObject( groupfunction+fieldNameGrouped , -1 ));
+	    // filter to limit number of records to be aggregated
+            DBObject limit1 = new BasicDBObject("$limit", aggregaterecordcount );
+	    // limit to topNresults aggregate output results
+            DBObject limit2 = new BasicDBObject("$limit", topNresults );
+
+            // run aggregation
+            List<DBObject> pipeline = Arrays.asList(match, limit1, group, sort, limit2);
+
+            AggregationOptions aggregationOptions = AggregationOptions.builder()
+                .batchSize(100)
+                .outputMode(AggregationOptions.OutputMode.CURSOR)
+                .allowDiskUse(true)
+                .build();
+
+            cursor = collection.aggregate(pipeline, aggregationOptions);
+
+            while (cursor.hasNext()) {
+                // toMap() returns a Map, but result.add() expects a
+                // Map<String,String>. Hence, the suppress warnings.
+                HashMap<String, Object> resultMap = new HashMap<String, Object>();
 
                 DBObject obj = cursor.next();
                 fillMap(resultMap, obj);
@@ -667,19 +805,85 @@ public class MongoDbClient extends DB {
     }
 
     /**
+     * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+     * Extended YCSB simple aggregates
+     *
+     * @param table The name of the table
+     * @param fieldnameGroup The field of the table used for grouping records
+     * @param len The number of records to be filtered for aggregate
+     * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+     * @return Zero on success, a non-zero error code on error or "not found".
+     */
+    public int aggregate(String table, String fieldNameGroup, int len, Vector<HashMap<String,Object>> result)
+    {
+       com.mongodb.DB db = null;
+       Cursor cursor = null;
+       try {
+	   db = mongos[random.nextInt(mongos.length)].getDB(database);
+	   db.requestStart();
+	   DBCollection collection = db.getCollection(table);
+
+	   // Now the $group operation
+	   String fieldNameGrouped="intkey";
+	   DBObject groupFields = new BasicDBObject( "_id", "$"+fieldNameGroup );
+
+	   DBObject group = new BasicDBObject("$group", groupFields);
+
+	   // Finally the $sort and $limit operations
+	   DBObject sort = new BasicDBObject("$sort", new BasicDBObject( "_id", -1 ));
+	   // filter to limit number of records to be aggregated
+	   DBObject limit = new BasicDBObject("$limit", len );
+
+	   // run aggregation
+	   List<DBObject> pipeline = Arrays.asList(limit, group, sort);
+
+	   AggregationOptions aggregationOptions = AggregationOptions.builder()
+	       .batchSize(100)
+	       .outputMode(AggregationOptions.OutputMode.CURSOR)
+	       .allowDiskUse(true)
+	       .build();
+
+	   cursor = collection.aggregate(pipeline, aggregationOptions);
+
+	   while (cursor.hasNext()) {
+	       // toMap() returns a Map, but result.add() expects a
+	       // Map<String,String>. Hence, the suppress warnings.
+	       HashMap<String, Object> resultMap = new HashMap<String, Object>();
+
+	       DBObject obj = cursor.next();
+	       fillMap(resultMap, obj);
+
+	       result.add(resultMap);
+	   }
+
+	   return 0;
+       }
+       catch (Exception e) {
+	   System.err.println(e.toString());
+	   return 1;
+       }
+       finally {
+	   if (db != null) {
+	       if( cursor != null ) {
+		   cursor.close();
+	       }
+	       db.requestDone();
+	   }
+       }
+
+    }
+
+    /**
      * TODO - Finish
      *
      * @param resultMap
      * @param obj
      */
     @SuppressWarnings("unchecked")
-    protected void fillMap(HashMap<String, ByteIterator> resultMap, DBObject obj) {
+    protected void fillMap(HashMap<String, Object> resultMap, DBObject obj) {
         Map<String, Object> objMap = obj.toMap();
         for (Map.Entry<String, Object> entry : objMap.entrySet()) {
-            if (entry.getValue() instanceof byte[]) {
-                resultMap.put(entry.getKey(), new ByteArrayByteIterator(
-                        (byte[]) entry.getValue()));
-            } 
+                resultMap.put(entry.getKey(), entry.getValue() );
         }
     }
 }

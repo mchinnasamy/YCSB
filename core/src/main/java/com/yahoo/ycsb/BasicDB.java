@@ -95,7 +95,7 @@ public class BasicDB extends DB
 	 * @param result A HashMap of field/value pairs for the result
 	 * @return Zero on success, a non-zero error code on error
 	 */
-	public int read(String table, String key, Set<String> fields, HashMap<String,ByteIterator> result)
+	public int read(String table, String key, Set<String> fields, HashMap<String,Object> result)
 	{
 		delay();
 
@@ -131,13 +131,13 @@ public class BasicDB extends DB
          * @param result A HashMap of field/value pairs for the result
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public int read(String table, String fieldname, String key, Set<String> fields, HashMap<String, ByteIterator> result)
+        public int read(String table, String fieldname, Object key, Set<String> fields, HashMap<String, Object> result)
         {
                 delay();
 
                 if (verbose)
                 {
-                        System.out.print("SECONDARYREAD "+table+" "+fieldname+" "+key+" [ ");
+                        System.out.print("SECONDARY READ "+table+" "+fieldname+" "+key+" [ ");
                         if (fields!=null)
                         {
                                 for (String f : fields)
@@ -170,14 +170,14 @@ public class BasicDB extends DB
          * @param result A HashMap of field/value pairs for the result
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public int read(String table, String fieldname, String key, String fieldname2, String lbdate, String ubdate, 
-			         Set<String> fields, HashMap<String, ByteIterator> result)
+        public int read(String table, String fieldname, Object key, String fieldname2, Object lbdate, Object ubdate, 
+			         Set<String> fields, HashMap<String, Object> result)
         {
                 delay();
 
                 if (verbose)
                 {
-                        System.out.print("COMPLEXREAD "+table+" "+fieldname+" "+fieldname2+ " from "+lbdate+" to "+ubdate+" "+key+" [ ");
+                        System.out.print("COMPLEX READ "+table+" "+fieldname+" "+fieldname2+ " from "+lbdate+" to "+ubdate+" "+key+" [ ");
                         if (fields!=null)
                         {
                                 for (String f : fields)
@@ -207,7 +207,7 @@ public class BasicDB extends DB
 	 * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
 	 * @return Zero on success, a non-zero error code on error
 	 */
-	public int scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String,ByteIterator>> result)
+	public int scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String,Object>> result)
 	{
 		delay();
 
@@ -244,14 +244,14 @@ public class BasicDB extends DB
          * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
          * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
          */
-        public int scan(String table, String fieldname, String startkey, int recordcount, 
-			Set<String> fields, Vector<HashMap<String, ByteIterator>> result)
+        public int scan(String table, String fieldname, Object startkey, int recordcount, 
+			Set<String> fields, Vector<HashMap<String, Object>> result)
         {
                 delay();
 
                 if (verbose)
                 {
-                        System.out.print("SECONDARYSCAN "+table+" "+fieldname+" "+startkey+" "+recordcount+" [ ");
+                        System.out.print("SECONDARY SCAN "+table+" "+fieldname+" "+startkey+" "+recordcount+" [ ");
                         if (fields!=null)
                         {
                                 for (String f : fields)
@@ -285,14 +285,14 @@ public class BasicDB extends DB
 	 * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public int scan(String table, String fieldname, String startkey, String fieldname2, String lbdate, String ubdate, int recordcount, 
-			Set<String> fields, Vector<HashMap<String, ByteIterator>> result)
+        public int scan(String table, String fieldname, Object startkey, String fieldname2, Object lbdate, Object ubdate, int recordcount, 
+			Set<String> fields, Vector<HashMap<String, Object>> result)
         {
                 delay();
 
                 if (verbose)
                 {
-                        System.out.print("COMPLEXSCAN "+table+" "+fieldname+" "+startkey+" "+fieldname2+ " from " + lbdate + " to " + ubdate+" "+recordcount+" [ ");
+                        System.out.print("COMPLEX SCAN "+table+" "+fieldname+" "+startkey+" "+fieldname2+ " from " + lbdate + " to " + ubdate+" "+recordcount+" [ ");
                         if (fields!=null)
                         {
                                 for (String f : fields)
@@ -311,6 +311,59 @@ public class BasicDB extends DB
                 return 0;
         }
 
+        /**
+         * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB aggregates
+         *
+         * @param table The name of the table
+         * @param fieldnameMatch The field of the table used for matching records
+         * @param startkeyMatch The start record key to be matched for aggregate
+         * @param endkeyMatch The end record key to be matched for aggregate
+         * @param aggregaterecordcount The number of records to be filtered for aggregate
+         * @param fieldnameGroup The field of the table used for grouping records
+         * @param groupfunction The function name used for grouping records: valid values are "sum", "avg", "count"
+         * @param topNresults The number of results from aggregate output to return
+         * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+         * @return Zero on success, a non-zero error code on error or "not found".
+         */
+        public int aggregate(String table,String fieldNameMatch, Object startkeyMatch, Object endkeyMatch, int aggregaterecordcount,
+                                      String fieldNameGroup, String groupfunction, int topNresults, Vector<HashMap<String,Object>> result)
+        {
+                delay();
+
+                if (verbose)
+                {
+                        System.out.print("AGGREGATE "+table+" match: "+fieldNameMatch+" start: "+startkeyMatch+" end: "+endkeyMatch+ " group by: " + groupfunction + " of " + fieldNameGroup + " [ ");
+
+                        System.out.println("]");
+                }
+
+                return 0;
+        }
+
+        /**
+         * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB simple aggregates
+         *
+         * @param table The name of the table
+         * @param fieldnameGroup The field of the table used for grouping records
+         * @param len The number of records to be filtered for aggregate
+         * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+         * @return Zero on success, a non-zero error code on error or "not found".
+         */
+        public int aggregate(String table, String fieldNameGroup, int len, Vector<HashMap<String,Object>> result)
+        {
+                delay();
+
+                if (verbose)
+                {
+                        System.out.print("AGGREGATE "+table+" group by: " + fieldNameGroup + " [ ");
+
+                        System.out.println("]");
+                }
+
+                return 0;
+        }
 
 	/**
 	 * Update a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified
@@ -340,6 +393,38 @@ public class BasicDB extends DB
 
 		return 0;
 	}
+
+        /**
+         * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified
+         * record key.
+         * Extended YCSB complex scans
+         *
+         * @param table The name of the table
+         * @param key The record key of the record to insert.
+         * @param values A HashMap of field/value pairs to insert in the record
+         * @return Zero on success, a non-zero error code on error.  See this class's description for a discussion of error codes.
+         */
+        public int complexinsert(String table, String key, HashMap<String,Object> values)
+        {
+                delay();
+
+                if (verbose)
+                {
+                        System.out.print("COMPLEX INSERT "+table+" "+key+" [ ");
+                        if (values!=null)
+                        {
+                                for (String k : values.keySet())
+                                {
+                                        System.out.print(k+"="+values.get(k)+" ");
+                                }
+                        }
+
+                        System.out.println("]");
+                }
+
+                return 0;
+        }
+
 
 	/**
 	 * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified

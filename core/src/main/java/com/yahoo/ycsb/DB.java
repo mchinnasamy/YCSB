@@ -90,7 +90,7 @@ public abstract class DB
 	 * @param result A HashMap of field/value pairs for the result
 	 * @return Zero on success, a non-zero error code on error or "not found".
 	 */
-	public abstract int read(String table, String key, Set<String> fields, HashMap<String,ByteIterator> result);
+	public abstract int read(String table, String key, Set<String> fields, HashMap<String,Object> result);
 
         /**
          * Read a record from the database. Each field/value pair from the result will be stored in a HashMap.
@@ -103,8 +103,8 @@ public abstract class DB
          * @param result A HashMap of field/value pairs for the result
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public abstract int read(String table, String fieldname, String key, 
-				 Set<String> fields, HashMap<String, ByteIterator> result);
+        public abstract int read(String table, String fieldname, Object key, 
+				 Set<String> fields, HashMap<String, Object> result);
 
         /**
          * Read a record from the database. Each field/value pair from the result will be stored in a HashMap.
@@ -120,8 +120,8 @@ public abstract class DB
          * @param result A HashMap of field/value pairs for the result
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public abstract int read(String table, String fieldname, String key, String fieldname2, String lbdate, String ubdate, 
-				 Set<String> fields, HashMap<String, ByteIterator> result);
+        public abstract int read(String table, String fieldname, Object key, String fieldname2, Object lbdate, Object ubdate, 
+				 Set<String> fields, HashMap<String, Object> result);
 
 	/**
 	 * Perform a range scan for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
@@ -134,7 +134,7 @@ public abstract class DB
 	 * @return Zero on success, a non-zero error code on error.  See this class's description for a discussion of error codes.
 	 */
 	public abstract int scan(String table, String startkey, int recordcount, 
-				 Set<String> fields, Vector<HashMap<String,ByteIterator>> result);
+				 Set<String> fields, Vector<HashMap<String,Object>> result);
 
         /**
          * Perform a range scan for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
@@ -148,8 +148,8 @@ public abstract class DB
          * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
          * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
          */
-        public abstract int scan(String table, String fieldname, String startkey, int recordcount, 
-				 Set<String> fields, Vector<HashMap<String, ByteIterator>> result);
+        public abstract int scan(String table, String fieldname, Object startkey, int recordcount, 
+				 Set<String> fields, Vector<HashMap<String, Object>> result);
 
         /** 
          * Perform a range scan for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
@@ -166,8 +166,50 @@ public abstract class DB
 	 * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
          * @return Zero on success, a non-zero error code on error or "not found".
          */  
-        public abstract int scan(String table, String fieldname, String startkey, String fieldname2, String lbdate, String ubdate, int recordcount, 
-				 Set<String> fields, Vector<HashMap<String, ByteIterator>> result);
+        public abstract int scan(String table, String fieldname, Object startkey, String fieldname2, Object lbdate, Object ubdate, int recordcount, 
+				 Set<String> fields, Vector<HashMap<String, Object>> result);
+
+        /**
+         * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB complex aggregates
+         *  
+         * @param table The name of the table
+         * @param fieldnameMatch The field of the table used for matching records
+         * @param startkeyMatch The start record key to be matched for aggregate
+         * @param endkeyMatch The end record key to be matched for aggregate
+         * @param aggregaterecordcount The number of records to be filtered for aggregate
+         * @param fieldnameGroup The field of the table used for grouping records
+         * @param groupfunction The function name used for grouping records: valid values are "sum", "avg", "count"
+         * @param topNresults The number of results from aggregate output to return 
+         * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+         * @return Zero on success, a non-zero error code on error or "not found".
+         */
+	public abstract int aggregate(String table,String fieldNameMatch, Object startkeyMatch, Object endkeyMatch, int aggregaterecordcount,
+				      String fieldNameGroup, String groupfunction, int topNresults, Vector<HashMap<String,Object>> result);
+
+        /**
+         * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB simple aggregates
+         *
+         * @param table The name of the table
+         * @param fieldnameGroup The field of the table used for grouping records
+         * @param len The number of records to be filtered for aggregate
+         * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+         * @return Zero on success, a non-zero error code on error or "not found".
+         */
+        public abstract int aggregate(String table, String fieldNameGroup, int len, Vector<HashMap<String,Object>> result);
+
+	/**
+	 * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified
+	 * record key.
+         * Extended YCSB complex inserts
+	 *
+	 * @param table The name of the table
+	 * @param key The record key of the record to insert.
+	 * @param values A HashMap of field/value pairs to insert in the record
+	 * @return Zero on success, a non-zero error code on error.  See this class's description for a discussion of error codes.
+	 */
+	public abstract int complexinsert(String table, String key, HashMap<String,Object> values);
 
 	/**
 	 * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified

@@ -534,7 +534,7 @@ public class CoreWorkload extends Workload
 			fields.add(fieldname);
 		}
 
-		db.read(table,keyname,fields,new HashMap<String,ByteIterator>());
+		db.read(table,keyname,fields,new HashMap<String,Object>());
 	}
 	
 	public void doTransactionReadModifyWrite(DB db)
@@ -572,7 +572,7 @@ public class CoreWorkload extends Workload
 		
 		long st=System.nanoTime();
 
-		db.read(table,keyname,fields,new HashMap<String,ByteIterator>());
+		db.read(table,keyname,fields,new HashMap<String,Object>());
 		
 		db.update(table,keyname,values);
 
@@ -602,7 +602,7 @@ public class CoreWorkload extends Workload
 			fields.add(fieldname);
 		}
 
-		db.scan(table,startkeyname,len,fields,new Vector<HashMap<String,ByteIterator>>());
+		db.scan(table,startkeyname,len,fields,new Vector<HashMap<String,Object>>());
 	}
 
 	public void doTransactionUpdate(DB db)

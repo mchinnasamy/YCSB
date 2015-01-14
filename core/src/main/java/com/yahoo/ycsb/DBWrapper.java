@@ -84,7 +84,7 @@ public class DBWrapper extends DB
 	 * @param result A HashMap of field/value pairs for the result
 	 * @return Zero on success, a non-zero error code on error
 	 */
-	public int read(String table, String key, Set<String> fields, HashMap<String,ByteIterator> result)
+	public int read(String table, String key, Set<String> fields, HashMap<String,Object> result)
 	{
 		long st=System.nanoTime();
 		int res=_db.read(table,key,fields,result);
@@ -104,7 +104,7 @@ public class DBWrapper extends DB
 	 * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
 	 * @return Zero on success, a non-zero error code on error
 	 */
-	public int scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String,ByteIterator>> result)
+	public int scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String,Object>> result)
 	{
 		long st=System.nanoTime();
 		int res=_db.scan(table,startkey,recordcount,fields,result);
@@ -125,13 +125,13 @@ public class DBWrapper extends DB
          * @param result A HashMap of field/value pairs for the result
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public int read(String table, String fieldname, String key, Set<String> fields, HashMap<String, ByteIterator> result)
+        public int read(String table, String fieldname, Object key, Set<String> fields, HashMap<String, Object> result)
         {
                 long st=System.nanoTime();
                 int res=_db.read(table,fieldname,key,fields,result);
                 long en=System.nanoTime();
-                _measurements.measure("SECONDARYREAD",(int)((en-st)/1000));
-                _measurements.reportReturnCode("SECONDARYREAD",res);
+                _measurements.measure("SECONDARY READ",(int)((en-st)/1000));
+                _measurements.reportReturnCode("SECONDARY READ",res);
                 return res;
         }
 
@@ -149,14 +149,14 @@ public class DBWrapper extends DB
          * @param result A HashMap of field/value pairs for the result
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public int read(String table, String fieldname, String key, String fieldname2, String lbdate, String ubdate, 
-			Set<String> fields, HashMap<String, ByteIterator> result)
+        public int read(String table, String fieldname, Object key, String fieldname2, Object lbdate, Object ubdate, 
+			Set<String> fields, HashMap<String, Object> result)
 	{
                 long st=System.nanoTime();
                 int res=_db.read(table,fieldname,key,fieldname2, lbdate, ubdate, fields,result);
                 long en=System.nanoTime();
-                _measurements.measure("COMPLEXREAD",(int)((en-st)/1000));
-                _measurements.reportReturnCode("COMPLEXREAD",res);
+                _measurements.measure("COMPLEX READ",(int)((en-st)/1000));
+                _measurements.reportReturnCode("COMPLEX READ",res);
                 return res;
 	}
 
@@ -172,14 +172,14 @@ public class DBWrapper extends DB
          * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
          * @return Zero on success, a non-zero error code on error. See this class's description for a discussion of error codes.
          */
-        public int scan(String table, String fieldname, String startkey, int recordcount, 
-			Set<String> fields, Vector<HashMap<String, ByteIterator>> result)
+        public int scan(String table, String fieldname, Object startkey, int recordcount, 
+			Set<String> fields, Vector<HashMap<String, Object>> result)
         {
                 long st=System.nanoTime();
                 int res=_db.scan(table,fieldname,startkey,recordcount,fields,result);
                 long en=System.nanoTime();
-                _measurements.measure("SECONDARAYSCAN",(int)((en-st)/1000));
-                _measurements.reportReturnCode("SECONDARAYSCAN",res);
+                _measurements.measure("SECONDARAY SCAN",(int)((en-st)/1000));
+                _measurements.reportReturnCode("SECONDARAY SCAN",res);
                 return res;
         }
 
@@ -198,16 +198,62 @@ public class DBWrapper extends DB
          * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
          * @return Zero on success, a non-zero error code on error or "not found".
          */
-        public int scan(String table, String fieldname, String startkey, String fieldname2, String lbdate, String ubdate, int recordcount, 
-		        Set<String> fields, Vector<HashMap<String, ByteIterator>> result)
+        public int scan(String table, String fieldname, Object startkey, String fieldname2, Object lbdate, Object ubdate, int recordcount, 
+		        Set<String> fields, Vector<HashMap<String, Object>> result)
 	{
                 long st=System.nanoTime();
                 int res=_db.scan(table,fieldname,startkey,fieldname2, lbdate, ubdate,recordcount,fields,result);
                 long en=System.nanoTime();
-                _measurements.measure("COMPLEXSCAN",(int)((en-st)/1000));
-                _measurements.reportReturnCode("COMPLEXSCAN",res);
+                _measurements.measure("COMPLEX SCAN",(int)((en-st)/1000));
+                _measurements.reportReturnCode("COMPLEX SCAN",res);
                 return res;
 	}
+
+        /**
+         * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB aggregates
+         *
+         * @param table The name of the table
+         * @param fieldnameMatch The field of the table used for matching records
+         * @param startkeyMatch The start record key to be matched for aggregate
+         * @param endkeyMatch The end record key to be matched for aggregate
+         * @param aggregaterecordcount The number of records to be filtered for aggregate
+         * @param fieldnameGroup The field of the table used for grouping records
+         * @param groupfunction The function name used for grouping records: valid values are "sum", "avg", "count"
+         * @param topNresults The number of results from aggregate output to return
+         * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+         * @return Zero on success, a non-zero error code on error or "not found".
+         */
+        public int aggregate(String table,String fieldNameMatch, Object startkeyMatch, Object endkeyMatch, int aggregaterecordcount,
+                                      String fieldNameGroup, String groupfunction, int topNresults, Vector<HashMap<String,Object>> result)
+        {
+                long st=System.nanoTime();
+                int res=_db.aggregate(table,fieldNameMatch,startkeyMatch,endkeyMatch,aggregaterecordcount,fieldNameGroup,groupfunction,topNresults,result);
+                long en=System.nanoTime();
+                _measurements.measure("AGGREGATE",(int)((en-st)/1000));
+                _measurements.reportReturnCode("AGGREGATE",res);
+                return res;
+        }
+
+        /**
+         * Perform an aggregate for a set of records in the database. Each field/value pair from the result will be stored in a HashMap.
+         * Extended YCSB simple aggregates
+         *
+         * @param table The name of the table
+         * @param fieldnameGroup The field of the table used for grouping records
+         * @param len The number of records to be filtered for aggregate
+         * @param result A Vector of HashMaps, where each HashMap is a set field/value pairs for one record
+         * @return Zero on success, a non-zero error code on error or "not found".
+         */
+        public int aggregate(String table, String fieldNameGroup, int len, Vector<HashMap<String,Object>> result)
+        {
+                long st=System.nanoTime();
+                int res=_db.aggregate(table,fieldNameGroup,len,result);
+                long en=System.nanoTime();
+                _measurements.measure("AGGREGATE",(int)((en-st)/1000));
+                _measurements.reportReturnCode("AGGREGATE",res);
+                return res;
+        }
 
 	/**
 	 * Update a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified
@@ -227,6 +273,26 @@ public class DBWrapper extends DB
 		_measurements.reportReturnCode("UPDATE",res);
 		return res;
 	}
+
+        /**
+         * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified
+         * record key.
+         * Extended YCSB complex scans
+         *
+         * @param table The name of the table
+         * @param key The record key of the record to insert.
+         * @param values A HashMap of field/value pairs to insert in the record
+         * @return Zero on success, a non-zero error code on error.  See this class's description for a discussion of error codes.
+         */
+        public int complexinsert(String table, String key, HashMap<String,Object> values)
+        {
+                long st=System.nanoTime();
+                int res=_db.complexinsert(table,key,values);
+                long en=System.nanoTime();
+                _measurements.measure("COMPLEX INSERT",(int)((en-st)/1000));
+                _measurements.reportReturnCode("COMPLEX INSERT",res);
+                return res;
+        }
 
 	/**
 	 * Insert a record in the database. Any field/value pairs in the specified values HashMap will be written into the record with the specified

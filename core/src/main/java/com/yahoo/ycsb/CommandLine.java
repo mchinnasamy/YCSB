@@ -293,10 +293,10 @@ public class CommandLine
 		     }
 		  }
 		  
-		  HashMap<String,ByteIterator> result=new HashMap<String,ByteIterator>();
+		  HashMap<String,Object> result=new HashMap<String,Object>();
 		  int ret=db.read(table,tokens[1],fields,result);
 		  System.out.println("Return code: "+ret);
-		  for (Map.Entry<String,ByteIterator> ent : result.entrySet())
+		  for (Map.Entry<String,Object> ent : result.entrySet())
 		  {
 		     System.out.println(ent.getKey()+"="+ent.getValue());
 		  }
@@ -322,7 +322,7 @@ public class CommandLine
 		     }
 		  }
 		  
-		  Vector<HashMap<String,ByteIterator>> results=new Vector<HashMap<String,ByteIterator>>();
+		  Vector<HashMap<String,Object>> results=new Vector<HashMap<String,Object>>();
 		  int ret=db.scan(table,tokens[1],Integer.parseInt(tokens[2]),fields,results);
 		  System.out.println("Return code: "+ret);
 		  int record=0;
@@ -334,10 +334,10 @@ public class CommandLine
 		  {
 		     System.out.println("--------------------------------");
 		  }
-		  for (HashMap<String,ByteIterator> result : results)
+		  for (HashMap<String,Object> result : results)
 		  {
 		     System.out.println("Record "+(record++));
-		     for (Map.Entry<String,ByteIterator> ent : result.entrySet())
+		     for (Map.Entry<String,Object> ent : result.entrySet())
 		     {
 			System.out.println(ent.getKey()+"="+ent.getValue());
 		     }

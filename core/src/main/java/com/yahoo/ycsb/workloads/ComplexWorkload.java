@@ -34,12 +34,14 @@ import com.yahoo.ycsb.generator.ZipfianGenerator;
 import com.yahoo.ycsb.generator.RandomDataGenerator;
 import com.yahoo.ycsb.measurements.Measurements;
 
+import java.util.Properties;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Vector;
 import java.util.Date;
 import java.util.Calendar;
+import java.util.TimeZone;
 
 /**
  * The core benchmark scenario. Represents a set of clients doing simple CRUD operations. The relative 
@@ -58,6 +60,7 @@ import java.util.Calendar;
  * <LI><b>updateproportion</b>: what proportion of operations should be updates (default: 0.05)
  * <LI><b>insertproportion</b>: what proportion of operations should be inserts (default: 0)
  * <LI><b>scanproportion</b>: what proportion of operations should be scans (default: 0)
+ * <LI><b>aggregateproportion</b>: what proportion of operations should be aggregates (default: 0)
  * <LI><b>secondaryscanproportion</b>: what proportion of operations should be secondary scans (default: 0)
  * <LI><b>complexscanproportion</b>: what proportion of operations should be complex scans (default: 0)
  * <LI><b>readmodifywriteproportion</b>: what proportion of operations should be read a record, modify it, write it back (default: 0)
@@ -67,6 +70,9 @@ import java.util.Calendar;
  * <LI><b>insertorder</b>: should records be inserted in order by key ("ordered"), or in hashed order ("hashed") (default: hashed)
  * <LI><b>complexreads</b>: should complex lookups be performed for read/scan operations: true or false (default: true)
  * <LI><b>secondaryreadfield</b>: Which field to be used for secondary read/scan key lookups: intkey, stringkey, or datekey (default: intkey)
+ * <LI><b>aggregatetype</b>: Which type of aggregate to be used: simple or complex (default: simple)
+ * <LI><b>aggregaterecordcount</b>: number of records to filter for aggregates (default: 10000)
+ * <LI><b>groupfunction</b>: Which function to be used when grouping for aggregates: sum, avg, first, last, min, max, or count (default: sum)
  * <LI><b>secondarykeydistribution</b>: what distribution should be used to select the secondary key values - uniform, zipfian, hotspot, or latest (default: uniform)
  * <LI><b>numdistinctintkeys</b>: the number of distinct values to generate for the intkey field (default: 300)
  * <LI><b>numdistinctstringkeys</b>: the number of distinct values to generate for the string field (default: 500)
@@ -217,10 +223,20 @@ public class ComplexWorkload extends Workload
 	public static final String SCAN_PROPORTION_PROPERTY="scanproportion";
 	
 	/**
-	 * The default proportion of transactions that are scans.
+	 * The default proportion of transactions that are aggregates.
 	 */
-	public static final String SCAN_PROPORTION_PROPERTY_DEFAULT="0.0";
+	public static final String AGGREGATE_PROPORTION_PROPERTY_DEFAULT="0.0";
 	
+        /**
+         * The name of the property for the proportion of transactions that are aggregates.
+         */
+        public static final String AGGREGATE_PROPORTION_PROPERTY="aggregateproportion";
+
+        /**
+         * The default proportion of transactions that are scans.
+         */
+        public static final String SCAN_PROPORTION_PROPERTY_DEFAULT="0.0";
+
 	/**
 	 * The name of the property for the proportion of transactions that are secondary scans.
 	 */
@@ -311,6 +327,35 @@ public class ComplexWorkload extends Workload
 	 */
 	public static final String SECONDARY_READ_FIELD_PROPERTY_DEFAULT="intkey";
 	
+	/**
+	 * The type of aggregate to be used. Options are "simple" or "complex"
+	 */
+	public static final String AGGREGATE_TYPE_PROPERTY="aggregatetype";
+	
+	/**
+	 * Default aggregate type
+	 */
+	public static final String AGGREGATE_TYPE_PROPERTY_DEFAULT="simple";
+
+	/**
+	 * The name of the property for the max records to filter for aggregate (number of records)
+	 */
+	public static final String AGGREGATE_RECORD_COUNT_PROPERTY="aggregaterecordcount";
+	
+	/**
+	 * The default max records to filter for aggregate
+	 */
+	public static final String AGGREGATE_RECORD_COUNT_PROPERTY_DEFAULT="1000";
+        /**
+         * The group operation function name
+         */
+        public static final String GROUP_OP_NAME_FIELD_PROPERTY="groupfunction";
+
+        /**
+         * Default group operation function name
+         */
+        public static final String GROUP_OP_NAME_FIELD_PROPERTY_DEFAULT="sum";
+
 	/**
 	 * The name of the property for the the distribution of secondary key values. Options are "uniform", "zipfian" and "latest"
 	 */
@@ -403,6 +448,13 @@ public class ComplexWorkload extends Workload
  	 */
         boolean complexreads;
         String secondaryreadfield;
+        String aggregatetype;
+
+        /** 
+	 * variables used with aggregate workload
+ 	 */
+        String groupfunction;
+        int aggregaterecordcount;
 
 	
 	protected static IntegerGenerator getFieldLengthGenerator(Properties p) throws WorkloadException{
@@ -465,8 +517,10 @@ public class ComplexWorkload extends Workload
                 Date bDate = new Date(112,01,01);
                 Calendar cal = Calendar.getInstance();
                 cal.setTime(bDate);
+		TimeZone tz = TimeZone.getTimeZone("America/Los_Angeles");
+        	cal.setTimeZone(tz);
 
-                if ( daysFromBase > numdistinctdatekeys/2 ){
+                if ( daysFromBase < numdistinctdatekeys/2 ){
                         daysFromBase = daysFromBase - numdistinctdatekeys;
                         cal.add(Calendar.DATE, daysFromBase);
                 } else {
@@ -494,6 +548,7 @@ public class ComplexWorkload extends Workload
 		double updateproportion=Double.parseDouble(p.getProperty(UPDATE_PROPORTION_PROPERTY,UPDATE_PROPORTION_PROPERTY_DEFAULT));
 		double insertproportion=Double.parseDouble(p.getProperty(INSERT_PROPORTION_PROPERTY,INSERT_PROPORTION_PROPERTY_DEFAULT));
 		double scanproportion=Double.parseDouble(p.getProperty(SCAN_PROPORTION_PROPERTY,SCAN_PROPORTION_PROPERTY_DEFAULT));
+		double aggregateproportion=Double.parseDouble(p.getProperty(AGGREGATE_PROPORTION_PROPERTY,AGGREGATE_PROPORTION_PROPERTY_DEFAULT));
 		double secondaryscanproportion=Double.parseDouble(p.getProperty(SECONDARY_SCAN_PROPORTION_PROPERTY,SECONDARY_SCAN_PROPORTION_PROPERTY_DEFAULT));
 		double complexscanproportion=Double.parseDouble(p.getProperty(COMPLEX_SCAN_PROPORTION_PROPERTY,COMPLEX_SCAN_PROPORTION_PROPERTY_DEFAULT));
 		double readmodifywriteproportion=Double.parseDouble(p.getProperty(READMODIFYWRITE_PROPORTION_PROPERTY,READMODIFYWRITE_PROPORTION_PROPERTY_DEFAULT));
@@ -505,6 +560,9 @@ public class ComplexWorkload extends Workload
 		int insertstart=Integer.parseInt(p.getProperty(INSERT_START_PROPERTY,INSERT_START_PROPERTY_DEFAULT));
 		complexreads=Boolean.parseBoolean(p.getProperty(COMPLEX_READS_PROPERTY,COMPLEX_READS_PROPERTY_DEFAULT));
 		secondaryreadfield=p.getProperty(SECONDARY_READ_FIELD_PROPERTY,SECONDARY_READ_FIELD_PROPERTY_DEFAULT);
+		aggregatetype=p.getProperty(AGGREGATE_TYPE_PROPERTY,AGGREGATE_TYPE_PROPERTY_DEFAULT);
+		groupfunction=p.getProperty(GROUP_OP_NAME_FIELD_PROPERTY,GROUP_OP_NAME_FIELD_PROPERTY_DEFAULT);
+		aggregaterecordcount=Integer.parseInt(p.getProperty(AGGREGATE_RECORD_COUNT_PROPERTY,AGGREGATE_RECORD_COUNT_PROPERTY_DEFAULT));
                 numdistinctdatekeys=Integer.parseInt(p.getProperty(NUM_DISTINCT_DATE_KEYS_PROPERTY, NUM_DISTINCT_DATE_KEYS_PROPERTY_DEFAULT));
 
 		if (complexreads)
@@ -515,8 +573,8 @@ public class ComplexWorkload extends Workload
         		// generate days interval to apply to base date
         		daysoffsetgenerator = new UniformIntegerGenerator( 1, numdistinctdatekeys );
 			// used for date range queries
-        		lbdaysoffsetgenerator = new UniformIntegerGenerator( 1, numdistinctdatekeys/2 );
-        		ubdaysoffsetgenerator = new UniformIntegerGenerator( numdistinctdatekeys/2 , numdistinctdatekeys );
+        		lbdaysoffsetgenerator = new UniformIntegerGenerator( 1, (int) (numdistinctdatekeys * 0.40) );
+        		ubdaysoffsetgenerator = new UniformIntegerGenerator( (int) ( 1 + numdistinctdatekeys * 0.60 ) , numdistinctdatekeys );
 		}
 		
 		readallfields=Boolean.parseBoolean(p.getProperty(READ_ALL_FIELDS_PROPERTY,READ_ALL_FIELDS_PROPERTY_DEFAULT));
@@ -574,6 +632,11 @@ public class ComplexWorkload extends Workload
 		if (secondaryscanproportion>0)
 		{
 			operationchooser.addValue(secondaryscanproportion,"SECONDARYSCAN");
+		}
+		
+		if (aggregateproportion>0)
+		{
+			operationchooser.addValue(aggregateproportion,"AGGREGATE");
 		}
 		
 		if (complexscanproportion>0)
@@ -654,37 +717,111 @@ public class ComplexWorkload extends Workload
                 RandomDataGenerator rdata = new RandomDataGenerator();
                 int rInt, daysFromBase;
 
-                if ( fieldname.equals("intkey") )
-                {
-                        rInt = intkeygenerator.nextInt();
-                        secondaryKey = String.valueOf( rInt );
-                }
-                else if ( fieldname.equals("stringkey") )
-                {
-                        rInt = stringkeygenerator.nextInt();
-                        secondaryKey = rdata.getRandomName( rInt );
-                }
-                else if ( fieldname.equals("datekey") )
-                {
-                        daysFromBase = daysoffsetgenerator.nextInt();
-                        // generate date from chosen base date using random offset
-                        secondaryKey = getRandomDate(daysFromBase).toString();
-                }
-                else if ( fieldname.equals("lbdatekey") )
-                {
-			daysFromBase = lbdaysoffsetgenerator.nextInt();
-			// generate lower bound date using random offset
-                        secondaryKey = getRandomDate(daysFromBase).toString();
-                }
-                else if ( fieldname.equals("ubdatekey") )
-                {
-			daysFromBase = ubdaysoffsetgenerator.nextInt();
-			// generate upper bound date using random offset
-                        secondaryKey = getRandomDate(daysFromBase).toString();
+                switch ( fieldname ) {
+			case "intkey":
+                        	rInt = intkeygenerator.nextInt();
+                        	secondaryKey = String.valueOf( rInt );
+				break;
+                	case "stringkey":
+                        	rInt = stringkeygenerator.nextInt();
+                        	secondaryKey = rdata.getRandomName( rInt );
+				break;
+                	case "datekey":
+                        	daysFromBase = daysoffsetgenerator.nextInt();
+                        	secondaryKey = getRandomDate(daysFromBase).toString();
+				break;
+                	case "lbdatekey":
+				daysFromBase = lbdaysoffsetgenerator.nextInt();
+				// generate lower bound date using random offset
+                        	secondaryKey = getRandomDate(daysFromBase).toString();
+				break;
+                	case "ubdatekey":
+				daysFromBase = ubdaysoffsetgenerator.nextInt();
+				// generate upper bound date using random offset
+                        	secondaryKey = getRandomDate(daysFromBase).toString();
+				break;
+			default:
+             			throw new IllegalArgumentException("Invalid secondary read field: " + fieldname);
                 }
 
                 return secondaryKey;
         }
+
+        Object getComplexKeyValue(String fieldname) {
+
+                Object complexKey = new String("");
+                RandomDataGenerator rdata = new RandomDataGenerator();
+                int rInt, daysFromBase;
+
+                switch ( fieldname ) {
+                        case "intkey":
+                                rInt = intkeygenerator.nextInt();
+                        	complexKey = rInt;
+                                break;
+                        case "stringkey":
+                                rInt = stringkeygenerator.nextInt();
+                        	complexKey = rdata.getRandomName( rInt );
+                                break;
+                        case "datekey":
+                                daysFromBase = daysoffsetgenerator.nextInt();
+                                complexKey = getRandomDate(daysFromBase);
+                                break;
+                        case "lbdatekey":
+                                daysFromBase = lbdaysoffsetgenerator.nextInt();
+                                // generate lower bound date using random offset
+                                complexKey = getRandomDate(daysFromBase);
+                                break;
+                        case "ubdatekey":
+                                daysFromBase = ubdaysoffsetgenerator.nextInt();
+                                // generate upper bound date using random offset
+                                complexKey = getRandomDate(daysFromBase);
+                                break;
+                        default:
+                                throw new IllegalArgumentException("Invalid complex field name: " + fieldname);
+                }
+
+
+                return complexKey;
+        }
+
+        HashMap<String, Object> buildComplexValues() {
+                HashMap<String,Object> values=new HashMap<String,Object>();
+
+                String fieldkey = new String();
+                StringByteIterator sbdata = new StringByteIterator("0");
+                Object sdata = new String();
+                ByteIterator data;
+
+                // Three additional fields added to base YCSB and used by complex lookups
+                if (complexreads)
+                {
+                        // integer data field - bounded by range specified in the generator
+                        fieldkey = "intkey";
+                        sdata = getComplexKeyValue (fieldkey );
+                        values.put(fieldkey,sdata);
+
+                        // string data field - bounded by range specified in the generator
+                        fieldkey = "stringkey";
+                        sdata = getComplexKeyValue (fieldkey );
+                        values.put(fieldkey,sdata);
+
+                        // date data field - bounded by range specified in the generator
+                        fieldkey = "datekey";
+                        sdata = getComplexKeyValue (fieldkey );
+                        values.put(fieldkey,sdata);
+                }
+
+                // original fields created by YCSB
+                for (int i=0; i<fieldcount; i++)
+                {
+                        fieldkey = "field" + i;
+                        data= new RandomByteIterator(fieldlengthgenerator.nextInt());
+                        values.put(fieldkey,data.toArray() );
+                }
+
+                return values;
+        }
+
 
 	HashMap<String, ByteIterator> buildValues() {
  		HashMap<String,ByteIterator> values=new HashMap<String,ByteIterator>();
@@ -745,11 +882,19 @@ public class ComplexWorkload extends Workload
 	{
 		int keynum=keysequence.nextInt();
 		String dbkey = buildKeyName(keynum);
-		HashMap<String, ByteIterator> values = buildValues();
-		if (db.insert(table,dbkey,values) == 0)
-			return true;
-		else
-			return false;
+		if ( ! complexreads) {
+			HashMap<String, ByteIterator> values = buildValues();
+			if (db.insert(table,dbkey,values) == 0)
+				return true;
+			else
+				return false;
+		} else {
+			HashMap<String, Object> cvalues = buildComplexValues();
+			if (db.complexinsert(table,dbkey,cvalues) == 0)
+				return true;
+			else
+				return false;
+		}
 	}
 
 	/**
@@ -793,6 +938,10 @@ public class ComplexWorkload extends Workload
 		else if (op.compareTo("COMPLEXSCAN")==0)
 		{
 			doTransactionComplexScan(db);
+		}
+		else if (op.compareTo("AGGREGATE")==0)
+		{
+			doTransactionAggregate(db);
 		}
 		else
 		{
@@ -838,7 +987,7 @@ public class ComplexWorkload extends Workload
 			fields.add(fieldname);
 		}
 
-		db.read(table,keyname,fields,new HashMap<String,ByteIterator>());
+		db.read(table,keyname,fields,new HashMap<String,Object>());
 
 	}
 	
@@ -857,9 +1006,9 @@ public class ComplexWorkload extends Workload
 
 		// extended lookup by specified field: one of intkey, stringkey, datekey
 
-		String keyvalue = getSecondaryKeyValue ( secondaryreadfield ); 
+		Object keyvalue = getComplexKeyValue ( secondaryreadfield ); 
 
-		db.read(table,secondaryreadfield,keyvalue,fields,new HashMap<String,ByteIterator>());
+		db.read(table,secondaryreadfield,keyvalue,fields,new HashMap<String,Object>());
 	}
 	
 	public void doTransactionComplexRead(DB db)
@@ -879,11 +1028,11 @@ public class ComplexWorkload extends Workload
 
 		String fieldName1 = "intkey";
 		String fieldName2 = "datekey";
-		String keyvalue = getSecondaryKeyValue ( fieldName1 ); 
-		String lbdatekey = getSecondaryKeyValue ( "lbdatekey" ); 
-		String ubdatekey = getSecondaryKeyValue ( "ubdatekey" ); 
+		Object keyvalue = getComplexKeyValue ( fieldName1 ); 
+		Object lbdatekey = getComplexKeyValue ( "lbdatekey" ); 
+		Object ubdatekey = getComplexKeyValue ( "ubdatekey" ); 
 
-		db.read(table,fieldName1,keyvalue,fieldName2, lbdatekey, ubdatekey, fields,new HashMap<String,ByteIterator>());
+		db.read(table,fieldName1,keyvalue,fieldName2, lbdatekey, ubdatekey, fields,new HashMap<String,Object>());
 	}
 	
 	public void doTransactionReadModifyWrite(DB db)
@@ -921,7 +1070,7 @@ public class ComplexWorkload extends Workload
 		
 		long st=System.nanoTime();
 
-		db.read(table,keyname,fields,new HashMap<String,ByteIterator>());
+		db.read(table,keyname,fields,new HashMap<String,Object>());
 		
 		db.update(table,keyname,values);
 
@@ -951,7 +1100,7 @@ public class ComplexWorkload extends Workload
 			fields.add(fieldname);
 		}
 
-		db.scan(table,startkeyname,len,fields,new Vector<HashMap<String,ByteIterator>>());
+		db.scan(table,startkeyname,len,fields,new Vector<HashMap<String,Object>>());
 	}
 
 	public void doTransactionSecondaryScan(DB db)
@@ -972,9 +1121,9 @@ public class ComplexWorkload extends Workload
 
 		// extended lookup by specified field: one of intkey, stringkey, datekey
 
-		String startkeyvalue = getSecondaryKeyValue ( secondaryreadfield ); 
+		Object startkeyvalue = getComplexKeyValue ( secondaryreadfield ); 
 
-		db.scan(table,secondaryreadfield,startkeyvalue,len,fields,new Vector<HashMap<String,ByteIterator>>());
+		db.scan(table,secondaryreadfield,startkeyvalue,len,fields,new Vector<HashMap<String,Object>>());
 	}
 
 	public void doTransactionComplexScan(DB db)
@@ -997,12 +1146,48 @@ public class ComplexWorkload extends Workload
 
 		String fieldName1 = "intkey";
 		String fieldName2 = "datekey";
-		String keyvalue = getSecondaryKeyValue ( fieldName1 ); 
-		String lbdatekey = getSecondaryKeyValue ( "lbdatekey" ); 
-		String ubdatekey = getSecondaryKeyValue ( "ubdatekey" ); 
+		Object keyvalue = getComplexKeyValue ( fieldName1 ); 
+		Object lbdatekey = getComplexKeyValue ( "lbdatekey" ); 
+		Object ubdatekey = getComplexKeyValue ( "ubdatekey" ); 
 
-		db.scan(table,fieldName1,keyvalue,fieldName2, lbdatekey, ubdatekey, len,fields,new Vector<HashMap<String,ByteIterator>>());
+		db.scan(table,fieldName1,keyvalue,fieldName2, lbdatekey, ubdatekey, len,fields,new Vector<HashMap<String,Object>>());
 	}
+
+        public void doTransactionAggregate(DB db)
+        {
+		//choose a random filter for simple aggregates
+		int len=scanlength.nextInt();
+
+		//filter for complex aggregates
+                int topNresults=20;
+		String fieldNameGroup = "intkey";
+		
+		switch (aggregatetype){
+			case "complex":
+                		fieldNameGroup = "stringkey";
+                		String fieldNameMatch = "datekey";
+                		Object startkeyMatch = getComplexKeyValue ( "lbdatekey" );
+                		Object endkeyMatch = getComplexKeyValue ( "ubdatekey" );
+
+                		// complex aggregate computes customer sales average, count, or sum over a random date range
+				// intkey represents sales amount and stringkey represents customer name
+
+                		db.aggregate(table,fieldNameMatch,startkeyMatch,endkeyMatch, aggregaterecordcount, 
+				     fieldNameGroup, groupfunction, topNresults, new Vector<HashMap<String,Object>>());
+
+				break;
+
+			case "simple":
+                		// simple aggregate computes all distinct intkeys over a randomly filtered record range
+				db.aggregate(table,fieldNameGroup,len,new Vector<HashMap<String,Object>>());
+
+				break;
+
+			default:
+                                throw new IllegalArgumentException("Invalid aggregate type " + aggregatetype);
+				
+		}
+        }
 
 	public void doTransactionUpdate(DB db)
 	{
@@ -1034,7 +1219,13 @@ public class ComplexWorkload extends Workload
 
 		String dbkey = buildKeyName(keynum);
 
-		HashMap<String, ByteIterator> values = buildValues();
-		db.insert(table,dbkey,values);
+                if ( ! complexreads) {
+                        HashMap<String, ByteIterator> values = buildValues();
+                        db.insert(table,dbkey,values);
+                } else {
+                        HashMap<String, Object> cvalues = buildComplexValues();
+                        db.complexinsert(table,dbkey,cvalues);
+                }
+
 	}
 }
