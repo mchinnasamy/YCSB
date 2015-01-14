@@ -22,6 +22,7 @@
 #   Default data size: 1 KB records (10 fields, 100 bytes each, plus key. Three additional fields for complex operations)
 #   Request distribution: zipfian
 
+table=complexnew
 recordcount=1000000
 workload=com.yahoo.ycsb.workloads.ComplexWorkload
 operationcount=1000000
@@ -34,12 +35,13 @@ secondaryreadproportion=0.15
 complexreadproportion=0.15
 secondaryscanproportion=0.15
 complexscanproportion=0.10
-updateproportion=0.30
+updateproportion=0.20
 scanproportion=0.05
-insertproportion=0.00
+aggregateproportion=0.10
+#insertproportion=0.00
 maxscanlength=100
 
-requestdistribution=uniform
+requestdistribution=zipfian
 
 # Extended YCSB properties
 # complexreads: true or false. This property will be used to determine whether to do complexreads field lookups or not
@@ -47,8 +49,16 @@ complexreads=true
 # secondaryreadfield: intkey, stringkey, or datekey. This property will be used to determine the field for secondary lookups
 secondaryreadfield=intkey
 # distinct key values for each of the secondary fields
-numdistinctintkeys=250
-numdistinctstringkeys=250
-numdistinctdatekeys=250
+numdistinctintkeys=400
+numdistinctstringkeys=400
+numdistinctdatekeys=400
 # secondary key distribution. Either uniform or zipfian
 secondarykeydistribution=zipfian
+
+# aggregate type: "simple" or "complex"
+aggregatetype=simple
+# function for complex aggregates: "sum", "count", "avg", "max", "min", "first", "last"
+groupfunction=sum
+# number of records to filter for complex aggregates
+aggregaterecordcount=5000
+
